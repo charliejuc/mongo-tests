@@ -1,9 +1,9 @@
-const { connectToDatabase, connectClientSingleton } = require("../database");
+const { connectToDatabase, connectClientSingleton } = require("../../database");
 const {
   generateBank,
   generateProduct,
   generateTransaction,
-} = require("./utils");
+} = require("../utils");
 
 const banksCount = 10;
 const maxProductsPerBank = 50;
@@ -11,8 +11,8 @@ const maxTransactionsPerProduct = 50_000;
 
 async function insert(database) {
   const banksCollection = database.collection("banks");
-  const transactionsCollection = database.collection("transactions");
   const productsCollection = database.collection("products");
+  const transactionsCollection = database.collection("transactions");
 
   console.log("Starting data generation");
 
@@ -33,40 +33,42 @@ async function insert(database) {
       };
 
       productsToInsert.push(product);
-
-      const transactionsCount = Math.floor(
-        Math.random() * maxTransactionsPerProduct
-      );
-
-      for (
-        let transactionIndex = 0;
-        transactionIndex < transactionsCount;
-        transactionIndex++
-      ) {
-        const transaction = {
-          ...generateTransaction(),
-          productId: product.id,
-        };
-
-        transactionsToInsert.push(transaction);
-
-        if (transactionsToInsert.length % 10_000 === 0) {
-          await transactionsCollection.insertMany(transactionsToInsert, {
-            ordered: false,
-          });
-          transactionsToInsert = [];
-
-          console.log(
-            `Inserted transactions batch for product ${
-              productIndex + 1
-            } of bank ${bankIndex + 1}`
-          );
-        }
-      }
     }
 
     if (bankIndex % 10 === 0) {
       console.log(`Generated data for ${bankIndex + 1} banks...`);
+    }
+  }
+
+  const transactionsCount =
+    Math.floor(Math.random() * maxTransactionsPerProduct) *
+    productsToInsert.length;
+
+  for (
+    let transactionIndex = 0;
+    transactionIndex < transactionsCount;
+    transactionIndex++
+  ) {
+    const randomProductIndex = Math.floor(
+      Math.random() * productsToInsert.length
+    );
+    const product = productsToInsert[randomProductIndex];
+    const transaction = {
+      ...generateTransaction(),
+      productId: product.id,
+    };
+
+    transactionsToInsert.push(transaction);
+
+    if (transactionsToInsert.length % 10_000 === 0) {
+      await transactionsCollection.insertMany(transactionsToInsert, {
+        ordered: false,
+      });
+      transactionsToInsert = [];
+
+      console.log(
+        `Inserted transactions batch for product ${product.id} of bank ${product.bankId}`
+      );
     }
   }
 
