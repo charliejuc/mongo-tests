@@ -50,42 +50,51 @@ const { connectToDatabase, connectClientSingleton } = require("../../database");
   const productIds = products.map((product) => product.id);
 
   // get with an aggregate with the list of transactions with the product object
-  const result = await transactionsCollection
-    .aggregate([
-      {
-        $match: {
-          productId: {
-            $in: productIds,
-          },
+  const aggregate = await transactionsCollection.aggregate([
+    {
+      $match: {
+        productId: {
+          $in: productIds,
         },
       },
-      // sort should be before lookup
-      {
-        $sort: {
-          amount: 1,
-        },
+    },
+    // sort should be before lookup
+    {
+      $sort: {
+        amount: 1,
       },
-      // limit should be as soon as possible
-      {
-        $limit: 1_000,
+    },
+    // limit should be as soon as possible
+    {
+      $limit: 1000,
+    },
+    // lookup will pass to the next step ALL the input data with the new related field
+    {
+      $lookup: {
+        from: "products",
+        localField: "productId",
+        foreignField: "id",
+        as: "product",
       },
-      // lookup will pass to the next step ALL the input data with the new related field
-      {
-        $lookup: {
-          from: "products",
-          localField: "productId",
-          foreignField: "id",
-          as: "product",
-        },
-      },
-      {
-        $unwind: "$product",
-      },
-    ])
-    .explain();
+    },
+    {
+      $unwind: "$product",
+    },
+    // similar effect as lookup
+    //       {
+    //         $addFields: {
+    //           amountMultiplied: {
+    //             $multiply: ["$amount", 10],
+    //           },
+    //         },
+    //       },
+  ]);
+  // const result = await aggregate.toArray();
+  const explain = await aggregate.explain();
 
-  console.log(JSON.stringify(result, null, 2));
-  console.log(result);
+  console.log(JSON.stringify(explain, null, 2));
+  console.log(explain);
+  // console.log(result.map((transaction) => transaction.id));
 
   await client.close();
 })();
